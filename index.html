@@ -1,0 +1,410 @@
+<html>
+    <head>
+        <title>Savannah Calculator</title>
+
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+        <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+        <link href="https://fonts.googleapis.com/css?family=Roboto+Mono&display=swap" rel="stylesheet">
+
+        <style>
+            .calculator {
+                width: 340px;
+                margin: 100px auto;
+                padding: 0;
+            }
+
+            .calc-button {
+                width: 50px;
+                height: 50px;
+                margin: 5px;
+            }
+
+            #display {
+                width: 310px;
+                font-size: 40px;
+                resize: none;
+                text-align: right;
+                font-family: 'Roboto Mono', monospace;
+            }
+        </style>
+
+        <script>
+            var answer = 0;
+            var entry = '';
+            var memory = 0;
+            var current_binary_function = null;
+
+            var unary_functions = {
+                'recip': x=>1/x,
+                'sqrt': Math.sqrt,
+                'x2': x=>Math.pow(x, 2),
+                'percent': x=>x/100
+            }
+            var unary_eval_functions = {
+                'exp': Math.exp,
+                'ln': Math.log,
+                'log': Math.log10,
+                'sin': Math.sin,
+                'cos': Math.cos,
+                'tan': Math.tan
+            }
+            var binary_functions = {
+                'plus': (x,y)=>x+y,
+                'minus': (x,y)=>x-y,
+                'times': (x,y)=>x*y,
+                'div': (x,y)=>x/y,
+                'pow': (x,y)=>Math.pow(x,y),
+                'root': (x,y)=>Math.pow(x,1/y)
+            }
+            var other_functions = {
+                'Mplus': ()=>{
+                    if (entry === '') {
+                        memory=memory+answer
+                    } else {
+                        memory=memory+parseFloat('0'+entry)
+                    }
+                },
+                'Mminus': ()=>{
+                    if (entry === '') {
+                        memory=memory-answer
+                    } else {
+                        memory=memory-parseFloat('0'+entry)
+                    }
+                },
+                'MC': ()=>memory=0,
+                'MR': ()=>entry=memory.toString(),
+                'CE': ()=>{
+                    if (entry === '') {
+                        reset();
+                    } else {
+                        entry='';
+                    }
+                },
+                'equal': ()=>{
+                    if (current_binary_function !== null) {
+                        answer = binary_functions[current_binary_function](answer, parseFloat('0'+entry));
+                        entry=null;
+                        current_binary_function = null;
+                    } else {
+                        answer = parseFloat(entry);
+                    }
+                },
+                'pi': ()=>entry=Math.PI.toString(),
+                'e': ()=>entry=Math.E.toString()
+            }
+
+            function sound(src) {
+                this.sound = document.createElement("audio");
+                this.sound.src = src;
+                this.sound.setAttribute("preload", "auto");
+                this.sound.setAttribute("controls", "none");
+                this.sound.style.display = "none";
+                document.body.appendChild(this.sound);
+                this.play = function(){
+                    this.sound.play();
+                }
+                this.stop = function(){
+                    this.sound.pause();
+                }
+            }
+
+            var audio_refs = {
+                'equal': 'audio/ahhhh.wav',
+                'CE': 'audio/ohwait.wav',
+                'div': 'audio/div.wav',
+                'dot': 'audio/dot.wav',
+                'minus': 'audio/minus.wav',
+                'plus': 'audio/plus.wav',
+                'times': 'audio/times.wav',
+                'exp': 'audio/exp.wav',
+                'ln': 'audio/ln.wav',
+                'log': 'audio/log.wav',
+                'sin': 'audio/sin.wav',
+                'cos': 'audio/cos.wav',
+                'tan': 'audio/tan.wav',
+                'sqrt': 'audio/sqrt.wav',
+                'recip': 'audio/recip.wav',
+                'pi': 'audio/pi.wav',
+                'e': 'audio/e.wav',
+                'percent': 'audio/percent.wav',
+                'x2': 'audio/x2.wav',
+                'root': 'audio/yroof.wav',
+                'pow': 'audio/xy.wav',
+                'MR': 'audio/MR.wav',
+                'MC': 'audio/MC.wav',
+                'Mminus': 'audio/MM.wav',
+                'Mplus': 'audio/MP.wav'
+            }
+            for(var i = 0; i <= 9; ++i) {
+                audio_refs[`${i}`] = `audio/${i}.wav`
+            }
+            var audio_objs = {}
+
+            function load() {
+                for (var func in unary_functions) {
+                    let f = func;
+
+                    if (f in audio_refs) {
+                        audio_objs[f] = new sound(audio_refs[f]);
+                    }
+
+                    $(`#${f}`).click(()=>{
+                        audio_objs[f].play();
+                        if (entry === null) {
+                            answer = unary_functions[f](answer);
+                        } else {
+                            entry = unary_functions[f](parseFloat('0'+entry)).toFixed(9);
+                        }
+                        resetDisplay();
+                    });
+                }
+                for (var func in unary_eval_functions) {
+                    let f = func;
+
+                    if (func in audio_refs) {
+                        audio_objs[f] = new sound(audio_refs[f]);
+                    }
+
+                    $(`#${f}`).click(()=>{
+                        audio_objs[f].play();
+                        if (current_binary_function !== null) {
+                            answer = binary_functions[current_binary_function](answer,parseFloat('0'+entry));
+                            entry=null;
+                            current_binary_function = null;
+                        }
+                        if (entry === null) {
+                            answer = unary_eval_functions[f](answer);
+                        } else {
+                            entry = unary_eval_functions[f](parseFloat('0'+entry)).toFixed(90);
+                        }
+                        resetDisplay();
+                    });
+                }
+                for (var func in binary_functions) {
+                    let f = func;
+
+                    if (func in audio_refs) {
+                        audio_objs[f] = new sound(audio_refs[f]);
+                    }
+
+                    $(`#${f}`).click(()=>{
+                        audio_objs[f].play();
+                        current_binary_function=f;
+                        if (entry !== null) {
+                            answer = parseFloat('0'+entry);
+                        }
+                        entry=null;
+                        resetDisplay();
+                    });
+                }
+                for (var func in other_functions) {
+                    let f = func;
+
+                    if (func in audio_refs) {
+                        audio_objs[f] = new sound(audio_refs[f]);
+                    }
+
+                    $(`#${f}`).click(()=>{
+                        audio_objs[f].play();
+                        other_functions[f]();
+                        resetDisplay();
+                    });
+                }
+                for (var i = 1; i <= 9; ++i) {
+                    let j = i;
+
+                    if (j in audio_refs) {
+                        audio_objs[j] = new sound(audio_refs[j]);
+                    }
+
+                    $(`#${j}`).click(()=>{
+                        audio_objs[j].play();
+                        if (entry===null) entry = '';
+                        entry+=`${j}`;
+                        resetDisplay();
+                    });
+                }
+                if ('0' in audio_refs) {
+                    audio_objs['0'] = new sound(audio_refs['0']);
+                }
+                $(`#0`).click(()=>{
+                    audio_objs['0'].play();
+                    if (entry !== null && entry.length > 0) entry+=`0`;
+                    resetDisplay();
+                });
+                if ('dot' in audio_refs) {
+                    audio_objs['dot'] = new sound(audio_refs['dot']);
+                }
+                $(`#dot`).click(()=>{
+                    audio_objs['dot'].play();
+                    if (entry !== null && !entry.includes('.')) entry+=`.`;
+                    resetDisplay();
+                });
+            }
+
+            function resetDisplay() {
+                if (entry === '') {
+                    $('#display').val('0');
+                } else if (entry === null) {
+                    $('#display').val(answer.toFixed(9).replace(/\.0+$/,''));
+                } else {
+                    $('#display').val(entry.replace(/\.0+$/,''));
+                }
+                for (var func in binary_functions) {
+                    $(`#${func}`).attr("disabled", false);
+                }
+                if (current_binary_function) {
+                    $(`#${current_binary_function}`).attr("disabled", true);
+                }
+            }
+            
+            function reset() {
+                answer = 0;
+                entry = '';
+                current_binary_function = null;
+            }
+
+            function click(btn) {
+                alert('here');
+                switch (btn) {
+                    case 'AC':
+                        alert('AC');
+                        break;
+                    default:
+                        alert('other');
+                        break;
+                }
+            }
+        </script>
+    </head>
+    <body onload="load()">
+        <div class="container calculator">
+            <div class="form-group">
+                <textarea class="form-control" rows="1" id="display" readonly>0</textarea>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-secondary calc-button" id="MR">MR</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-secondary calc-button" id="Mplus">M+</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-secondary calc-button" id="Mminus">M-</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-secondary calc-button" id="MC">MC</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-dark calc-button" id="CE">CE</button>
+                </div>
+            </div>    
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger calc-button" id="exp">e<sup>x</sup></button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-info calc-button" id="pi">pi</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-info calc-button" id="e">e</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-info calc-button" id="sqrt">√</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-success calc-button" id="root"><sup>y</sup>√</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger calc-button" id="ln">ln</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-info calc-button" id="recip">1/x</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-info calc-button" id="percent">%</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-info calc-button" id="x2">x<sup>2</sup></button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-success calc-button" id="pow">x<sup>y</sup></button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger calc-button" id="log">log</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="7">7</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="8">8</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="9">9</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-success calc-button" id="div">÷</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger calc-button" id="sin">sin</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="4">4</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="5">5</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="6">6</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-success calc-button" id="times">*</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger calc-button" id="cos">cos</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="1">1</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="2">2</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="3">3</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-success calc-button" id="minus">-</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <button type="button" class="btn btn-danger calc-button" id="tan">tan</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-secondary calc-button" id="dot">.</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-primary calc-button" id="0">0</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-secondary calc-button" id="equal">=</button>
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-success calc-button" id="plus">+</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
